@@ -16,16 +16,6 @@ export const POST: APIRoute = async ({ request }) => {
 			},
 		})
 		const user = octoRequestUser.data
-		if (!user.name)
-			return new Response(
-				"GitHub account doesn't have a name (used to sign commits)",
-				{ status: 401 }
-			)
-		if (!user.email)
-			return new Response(
-				"GitHub account doesn't have an email (used to sign commits)",
-				{ status: 401 }
-			)
 
 		const octoRequest = await octokit.request(
 			"PUT /repos/{owner}/{repo}/contents/{path}",
@@ -35,7 +25,7 @@ export const POST: APIRoute = async ({ request }) => {
 				path: body.path,
 				message: `[cms] ${body.filename}`,
 				committer: {
-					name: user.name,
+					name: user.name || user.login,
 					email: `${user.id}+${user.login}@users.noreply.github.com`,
 				},
 				content: base64,
