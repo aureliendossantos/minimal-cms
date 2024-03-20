@@ -1,3 +1,5 @@
 export const getSiteURL = () => {
-	return import.meta.env.PROD ? Astro.site : "http://localhost:4321/"
+	return import.meta.env.PROD
+		? "https://cms.aureliendossantos.com/"
+		: "http://localhost:4321/"
 }
