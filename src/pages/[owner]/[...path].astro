@@ -113,59 +113,69 @@ items && navItems.push(...items)
 <script>
 	// The commit button makes a POST request to an API route
 	// The API route will commit the file to the GitHub repository
-	const button = document.getElementById("commit")
-	button?.addEventListener("click", async () => {
-		const response = await fetch("/api/commit", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				auth: Astro.cookies.get("access_token"),
-				owner: button.dataset.owner,
-				repo: button.dataset.repo,
-				path: button.dataset.path,
-				sha: button.dataset.sha,
-				filename: button.dataset.filename,
-				content: document.querySelector("textarea")?.value,
-			}),
+	document.addEventListener("astro:page-load", () => {
+		const button = document.getElementById("commit")
+		button?.addEventListener("click", async () => {
+			const response = await fetch("/api/commit", {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					auth: Astro.cookies.get("access_token"),
+					owner: button.dataset.owner,
+					repo: button.dataset.repo,
+					path: button.dataset.path,
+					sha: button.dataset.sha,
+					filename: button.dataset.filename,
+					content: document.querySelector("textarea")?.value,
+				}),
+			})
+			if (response.status == 200) alert("File updated")
+			if (response.status == 201) alert("File created")
+			if (response.status == 401) alert(response.statusText)
+			if (response.status == 404) alert("404 error")
+			if (response.status == 409) alert("Conflict error")
+			if (response.status == 422) alert("Validation failed or endpoint spammed")
+			// put back the content in response in the textarea
+			document.querySelector("textarea")!.value = (
+				await response.json()
+			).content
 		})
-		if (response.status == 200) alert("File updated")
-		if (response.status == 201) alert("File created")
-		if (response.status == 401) alert(response.statusText)
-		if (response.status == 404) alert("404 error")
-		if (response.status == 409) alert("Conflict error")
-		if (response.status == 422) alert("Validation failed or endpoint spammed")
-		// put back the content in response in the textarea
-		document.querySelector("textarea")!.value = (await response.json()).content
 	})
 </script>
 
 <script>
 	// The rebuild button makes a POST request to an API route
 	// The API route will make a POST request to a Vercel Deploy Hook
-	document.getElementById("rebuild")?.addEventListener("click", async () => {
-		const response = await fetch("/api/deploy", {
-			method: "POST",
+	document.addEventListener("astro:page-load", () => {
+		document.getElementById("rebuild")?.addEventListener("click", async () => {
+			const response = await fetch("/api/deploy", {
+				method: "POST",
+			})
+			if (response.status == 200) alert("The website is rebuilding.")
+			if (response.status != 200) alert("Error " + response.status)
 		})
-		if (response.status == 200) alert("The website is rebuilding.")
-		if (response.status != 200) alert("Error " + response.status)
 	})
 </script>
 
 <script>
 	// Allow tabs in textarea
-	document.querySelector("textarea")?.addEventListener("keydown", function (e) {
-		if (e.key == "Tab") {
-			e.preventDefault()
-			var start = this.selectionStart
-			var end = this.selectionEnd
-			// set textarea value to: text before caret + tab + text after caret
-			this.value =
-				this.value.substring(0, start) + "\t" + this.value.substring(end)
-			// put caret at right position again
-			this.selectionStart = this.selectionEnd = start + 1
-		}
+	document.addEventListener("astro:page-load", () => {
+		document
+			.querySelector("textarea")
+			?.addEventListener("keydown", function (e) {
+				if (e.key == "Tab") {
+					e.preventDefault()
+					var start = this.selectionStart
+					var end = this.selectionEnd
+					// set textarea value to: text before caret + tab + text after caret
+					this.value =
+						this.value.substring(0, start) + "\t" + this.value.substring(end)
+					// put caret at right position again
+					this.selectionStart = this.selectionEnd = start + 1
+				}
+			})
 	})
 </script>
 
@@ -179,12 +189,14 @@ items && navItems.push(...items)
 	const button = document.getElementById("format")
 	const textarea = document.querySelector("textarea")
 
-	button?.addEventListener("click", async () => {
-		const formatted = await prettier.format(textarea.value, {
-			filepath: button.dataset.path,
-			useTabs: true,
-			plugins: [markdown, babel, estree],
+	document.addEventListener("astro:page-load", () => {
+		button?.addEventListener("click", async () => {
+			const formatted = await prettier.format(textarea.value, {
+				filepath: button.dataset.path,
+				useTabs: true,
+				plugins: [markdown, babel, estree],
+			})
+			textarea.value = formatted
 		})
-		textarea.value = formatted
 	})
 </script>
