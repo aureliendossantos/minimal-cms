@@ -1,0 +1,44 @@
+---
+import { ViewTransitions } from "astro:transitions"
+
+interface Props {
+	title: string
+}
+const { title } = Astro.props
+---
+
+<!doctype html>
+<html>
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title}</title>
+		<ViewTransitions />
+	</head>
+	<body
+		class="max-w-[1200px] lg:flex-row lg:gap-16 h-screen flex-col flex m-auto px-4 p-8 bg-neutral-50 dark:bg-black dark:text-neutral-300"
+	>
+		<div>
+			<slot />
+		</div>
+		<div class="grow">
+			<slot name="editor" />
+		</div>
+		<style>
+			a {
+				@apply dark:hover:text-neutral-50 hover:text-neutral-900;
+			}
+			textarea::-webkit-scrollbar {
+				width: 8px;
+			}
+			textarea::-webkit-scrollbar-thumb {
+				@apply rounded-full bg-neutral-200 hover:bg-neutral-300 active:bg-neutral-400 dark:bg-neutral-800 px-2 dark:hover:bg-neutral-700 dark:active:bg-neutral-600 hover:cursor-grab active:cursor-grabbing;
+			}
+			textarea::-webkit-scrollbar-track {
+				@apply bg-transparent;
+			}
+		</style>
+	</body>
+</html>

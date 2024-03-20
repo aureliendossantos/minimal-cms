@@ -1,0 +1,23 @@
+---
+import Layout from "$layouts/Layout.astro"
+import { createAccount } from "$utils/github"
+import { getSiteURL } from "$utils/site"
+
+// If there is a `code` query parameter, it means the user has been redirected from GitHub auth page. We can use the code to get an access token.
+const code = Astro.url.searchParams.get("code")
+if (code) {
+	const { user, token } = await createAccount(code)
+	Astro.cookies.set("access_token", token.access_token, {
+		expires: token.expires_at,
+	})
+	return Astro.redirect(`/${user.login}`)
+}
+---
+
+<Layout title={"Home"}>
+	<a
+		href={`https://github.com/login/oauth/authorize?client_id=${import.meta.env.GITHUB_APP_CLIENT_ID}&redirect_uri=${getSiteURL()}`}
+	>
+		Connect your GitHub repositories
+	</a>
+</Layout>

@@ -1,0 +1,190 @@
+---
+import Layout from "$layouts/Layout.astro"
+import { getRepoContent } from "$utils/github"
+
+const owner = Astro.params.owner!
+const repo = Astro.params.path!.split("/")[0]
+const path = Astro.params.path?.split("/").slice(1).join("/") || ""
+
+const token = Astro.cookies.get("access_token")?.value
+if (!token) return Astro.redirect("/")
+
+const data = await getRepoContent(token, owner, repo, path)
+
+const folders = Array.isArray(data)
+	? data.filter((item) => item.type == "dir")
+	: undefined
+const files = Array.isArray(data) && data.filter((item) => item.type == "file")
+
+const fileContents =
+	data &&
+	"type" in data &&
+	data.type == "file" &&
+	Buffer.from(data.content, "base64").toString("utf-8")
+
+let navItems = [
+	{ name: owner, url: `/${owner}`, folder: true },
+	{ name: repo, url: `/${owner}/${repo}`, folder: true },
+]
+const items = path?.split("/").map((name, index, array) => {
+	const url = `/${owner}/${repo}/` + array.slice(0, index + 1).join("/")
+	return { name: name, url: url, folder: !name.includes(".") }
+})
+items && navItems.push(...items)
+---
+
+<Layout title={path || repo}>
+	{
+		(
+			<div class="flex flex-col">
+				{navItems.map((item, index) => (
+					<a
+						href={item.url}
+						class:list={{
+							"font-medium": item.folder,
+							"text-neutral-500": index != navItems.length - 1,
+						}}
+					>
+						{item.name}
+					</a>
+				))}
+			</div>
+		)
+	}
+	{
+		Array.isArray(data) ? (
+			<>
+				{folders && folders.length > 0 && (
+					<div class="flex flex-col my-4">
+						{folders.map((item) => (
+							<a href={`/${owner}/${repo}/${item.path}`} class="font-medium">
+								{item.name}
+							</a>
+						))}
+					</div>
+				)}
+				{files && (
+					<div class="flex flex-col my-4">
+						{files.map((item) => (
+							<a href={`/${owner}/${repo}/${item.path}`}>{item.name}</a>
+						))}
+					</div>
+				)}
+			</>
+		) : (
+			<>
+				<div class="flex gap-2 mt-4 mb-2 text-sm text-neutral-500 font-medium">
+					<button
+						id="format"
+						data-path={data?.path}
+						class="border-neutral-500 border rounded px-2 py-1"
+					>
+						Format
+					</button>
+					<button
+						id="commit"
+						data-owner={owner}
+						data-repo={repo}
+						data-path={data?.path}
+						data-sha={data?.sha}
+						data-filename={data?.name}
+						class="border-neutral-500 border rounded px-2 py-1"
+					>
+						Commit
+					</button>
+					<button
+						id="rebuild"
+						class="border-neutral-500 border rounded px-2 py-1"
+					>
+						Trigger Rebuild
+					</button>
+				</div>
+			</>
+		)
+	}
+	{/* prettier-ignore */}
+	<textarea
+		slot="editor"
+		class="dark:bg-black bg-neutral-50 font-mono pr-2 text-sm lg:text-base min-h-[calc(100vh-58px)] w-full h-full focus:outline-none resize-none"
+		>{fileContents}</textarea
+	>
+</Layout>
+
+<script>
+	// The commit button makes a POST request to an API route
+	// The API route will commit the file to the GitHub repository
+	const button = document.getElementById("commit")
+	button?.addEventListener("click", async () => {
+		const response = await fetch("/api/commit", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				auth: Astro.cookies.get("access_token"),
+				owner: button.dataset.owner,
+				repo: button.dataset.repo,
+				path: button.dataset.path,
+				sha: button.dataset.sha,
+				filename: button.dataset.filename,
+				content: document.querySelector("textarea")?.value,
+			}),
+		})
+		if (response.status == 200) alert("File updated")
+		if (response.status == 201) alert("File created")
+		if (response.status == 401) alert(response.statusText)
+		if (response.status == 404) alert("404 error")
+		if (response.status == 409) alert("Conflict error")
+		if (response.status == 422) alert("Validation failed or endpoint spammed")
+		// put back the content in response in the textarea
+		document.querySelector("textarea")!.value = (await response.json()).content
+	})
+</script>
+
+<script>
+	// The rebuild button makes a POST request to an API route
+	// The API route will make a POST request to a Vercel Deploy Hook
+	document.getElementById("rebuild")?.addEventListener("click", async () => {
+		const response = await fetch("/api/deploy", {
+			method: "POST",
+		})
+		if (response.status == 200) alert("The website is rebuilding.")
+		if (response.status != 200) alert("Error " + response.status)
+	})
+</script>
+
+<script>
+	// Allow tabs in textarea
+	document.querySelector("textarea")?.addEventListener("keydown", function (e) {
+		if (e.key == "Tab") {
+			e.preventDefault()
+			var start = this.selectionStart
+			var end = this.selectionEnd
+			// set textarea value to: text before caret + tab + text after caret
+			this.value =
+				this.value.substring(0, start) + "\t" + this.value.substring(end)
+			// put caret at right position again
+			this.selectionStart = this.selectionEnd = start + 1
+		}
+	})
+</script>
+
+<script type="module" is:inline>
+	// import and use prettier
+	import * as prettier from "https://unpkg.com/prettier@3.2.5/standalone.mjs"
+	import markdown from "https://unpkg.com/prettier@3.2.5/plugins/markdown.mjs"
+	import babel from "https://unpkg.com/prettier@3.2.5/plugins/babel.mjs"
+	import estree from "https://unpkg.com/prettier@3.2.5/plugins/estree.mjs"
+
+	const button = document.getElementById("format")
+	const textarea = document.querySelector("textarea")
+
+	button?.addEventListener("click", async () => {
+		const formatted = await prettier.format(textarea.value, {
+			filepath: button.dataset.path,
+			useTabs: true,
+			plugins: [markdown, babel, estree],
+		})
+		textarea.value = formatted
+	})
+</script>
