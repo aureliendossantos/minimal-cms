@@ -17,7 +17,8 @@ if (code) {
 <Layout title={"Home"}>
 	<a
 		href={`https://github.com/login/oauth/authorize?client_id=${import.meta.env.GITHUB_APP_CLIENT_ID}&redirect_uri=${getSiteURL()}`}
+		class="font-medium rounded border border-neutral-500 px-2 py-1 text-neutral-500"
 	>
-		Connect your GitHub repositories
+		Log in with GitHub
 	</a>
 </Layout>

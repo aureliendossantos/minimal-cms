@@ -1,4 +1,5 @@
 import { Octokit } from "@octokit/core"
+import { createAppAuth } from "@octokit/auth-app"
 import { GitHubAccount, GitHubToken, db, eq } from "astro:db"
 import { getSiteURL } from "./site"
 
@@ -90,13 +91,35 @@ export const refreshToken = async (refreshToken: string) => {
 }
 
 export const getUserRepos = async (auth: string) => {
-	const octokit = new Octokit({ auth: auth })
-	const octoRequest = await octokit.request("GET /user/repos", {
-		headers: {
-			"X-GitHub-Api-Version": "2022-11-28",
-		},
+	// Get the ID of the user installation, if it exists
+	const userAccessOctokit = new Octokit({ auth: auth })
+	const userInstalls = await userAccessOctokit.request(
+		"GET /user/installations"
+	)
+	if (userInstalls.data.total_count == 0) return []
+	const installation = userInstalls.data.installations[0]
+	if (installation.suspended_by) return []
+	// Retrieve installation access token
+	const app = createAppAuth({
+		appId: import.meta.env.GITHUB_APP_ID,
+		privateKey: import.meta.env.GITHUB_APP_PRIVATE_KEY,
+		clientId: import.meta.env.GITHUB_APP_CLIENT_ID,
+		clientSecret: import.meta.env.GITHUB_APP_CLIENT_SECRET,
 	})
-	return octoRequest.data
+	const installAuth = await app({
+		type: "installation",
+		installationId: installation.id,
+	})
+	// List repositories accessible to the app installation
+	const appAccessOctokit = new Octokit({ auth: installAuth.token })
+	const installationRepos = await appAccessOctokit.request(
+		"GET /installation/repositories",
+		{
+			per_page: 100,
+			headers: { "X-GitHub-Api-Version": "2022-11-28" },
+		}
+	)
+	return installationRepos.data.repositories
 }
 
 export const getRepoContent = async (
