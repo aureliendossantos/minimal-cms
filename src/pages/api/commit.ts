@@ -36,7 +36,7 @@ export const POST: APIRoute = async ({ request }) => {
 				message: `[cms] ${body.filename}`,
 				committer: {
 					name: user.name,
-					email: user.email,
+					email: `${user.id}+${user.login}@users.noreply.github.com`,
 				},
 				content: base64,
 				sha: body.sha,
