@@ -73,13 +73,37 @@ items && navItems.push(...items)
 			</>
 		) : (
 			<>
-				<div class="flex gap-2 mt-4 mb-2 text-sm text-neutral-500 font-medium">
+				<div
+					id="edit-actions"
+					class="flex gap-2 mt-4 mb-2 text-sm text-neutral-500 font-medium"
+				>
 					<button
 						id="format"
 						data-path={data?.path}
 						class="border-neutral-500 border rounded px-2 py-1"
 					>
 						Format
+					</button>
+					<button
+						id="show-diff"
+						data-old-content={fileContents}
+						class="border-neutral-500 border rounded px-2 py-1"
+					>
+						Preview Commit
+					</button>
+					<button
+						id="rebuild"
+						class="border-neutral-500 border rounded px-2 py-1"
+					>
+						Trigger Rebuild
+					</button>
+				</div>
+				<div
+					id="commit-actions"
+					class="hidden flex gap-2 mt-4 mb-2 text-sm text-neutral-500 font-medium"
+				>
+					<button id="back" class="border-neutral-500 border rounded px-2 py-1">
+						Back
 					</button>
 					<button
 						id="commit"
@@ -91,25 +115,68 @@ items && navItems.push(...items)
 						data-filename={data?.name}
 						class="border-neutral-500 border rounded px-2 py-1"
 					>
-						Commit
+						Commit Changes
 					</button>
-					<button
-						id="rebuild"
-						class="border-neutral-500 border rounded px-2 py-1"
-					>
-						Trigger Rebuild
-					</button>
+				</div>
+				<div id="notification" class="hidden text-sm my-4">
+					<span />
+					<a class="underline" href="#" />
 				</div>
 			</>
 		)
 	}
 	{/* prettier-ignore */}
-	<textarea
-		slot="editor"
-		class="dark:bg-black bg-neutral-50 font-mono pr-2 text-sm lg:text-base min-h-[calc(100vh-58px)] w-full h-full focus:outline-none resize-none"
-		>{fileContents}</textarea
-	>
+	<div slot="editor" class="h-full w-full">
+		<pre
+			id="diff"
+			class="hidden min-h-[calc(100vh-58px)] max-w-[700px] w-full h-full overflow-scroll text-sm lg:text-base">
+		</pre>
+		<textarea
+			class="dark:bg-black bg-neutral-50 font-mono pr-2 text-sm lg:text-base min-h-[calc(100vh-58px)] w-full h-full focus:outline-none resize-none"
+			>{fileContents}</textarea
+		>
+	</div>
 </Layout>
+
+<script>
+	import * as Diff from "diff"
+	// show the diff between the current content and the new content
+	document.addEventListener("astro:page-load", () => {
+		const button = document.getElementById("show-diff")
+		const textarea = document.querySelector("textarea")!
+		const diff = document.getElementById("diff")!
+
+		button?.addEventListener("click", () => {
+			const oldContent = button.dataset.oldContent
+			const newContent = textarea.value
+			const changes = Diff.diffLines(oldContent, newContent)
+			diff.innerHTML = ""
+			changes.forEach((part) => {
+				const classes = part.added
+					? "text-green-900 bg-green-100 dark:text-green-300 dark:bg-green-900"
+					: part.removed
+						? "text-red-900 bg-red-100 dark:text-red-300 dark:bg-red-900"
+						: "text-neutral-500"
+				const span = document.createElement("span")
+				span.className = classes
+				span.style.display = "block"
+				span.appendChild(document.createTextNode(part.value))
+				diff.appendChild(span)
+			})
+			diff.classList.toggle("hidden")
+			textarea.classList.toggle("hidden")
+			document.getElementById("edit-actions")!.classList.toggle("hidden")
+			document.getElementById("commit-actions")!.classList.toggle("hidden")
+		})
+
+		document.getElementById("back")?.addEventListener("click", () => {
+			diff.classList.toggle("hidden")
+			textarea.classList.toggle("hidden")
+			document.getElementById("edit-actions")!.classList.toggle("hidden")
+			document.getElementById("commit-actions")!.classList.toggle("hidden")
+		})
+	})
+</script>
 
 <script>
 	// The commit button makes a POST request to an API route
@@ -133,16 +200,27 @@ items && navItems.push(...items)
 					content: document.querySelector("textarea")?.value,
 				}),
 			})
-			if (response.status == 200) alert("File updated")
-			if (response.status == 201) alert("File created")
-			if (response.status == 401) alert(JSON.stringify(await response.json()))
-			if (response.status == 404) alert("404 error")
-			if (response.status == 409) alert("Conflict error")
-			if (response.status == 422) alert("Validation failed or endpoint spammed")
-			// put back the content in response in the textarea
-			document.querySelector("textarea")!.value = (
-				await response.json()
-			).content
+			const json = await response.json()
+			let message = "Unknown error."
+			if (response.status == 200) message = "File updated."
+			if (response.status == 201) message = "File created."
+			if (response.status == 401) message = JSON.stringify(json)
+			if (response.status == 404) message = "404 error."
+			if (response.status == 409) message = "Conflict error."
+			if (response.status == 422)
+				message = "Error: Validation failed or endpoint spammed."
+			const content = json.content
+			// Display a notification
+			const notification = document.getElementById("notification")!
+			notification.querySelector("span")!.textContent = message
+			if (content) {
+				notification.querySelector("a")!.href = content
+				notification.querySelector("a")!.textContent = "See on GitHub"
+			} else {
+				notification.querySelector("a")!.href = "#"
+				notification.querySelector("a")!.textContent = ""
+			}
+			notification.classList.remove("hidden")
 		})
 	})
 </script>
