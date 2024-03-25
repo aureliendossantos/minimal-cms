@@ -9,133 +9,145 @@ const path = Astro.params.path?.split("/").slice(1).join("/") || ""
 const token = Astro.cookies.get("access_token")?.value
 if (!token) return Astro.redirect("/")
 
-const data = await getRepoContent(token, owner, repo, path)
-
-const folders = Array.isArray(data)
-	? data.filter((item) => item.type == "dir")
-	: undefined
-const files = Array.isArray(data) && data.filter((item) => item.type == "file")
-
-const fileContents =
-	data &&
-	"type" in data &&
-	data.type == "file" &&
-	Buffer.from(data.content, "base64").toString("utf-8")
+const res = await getRepoContent(token, owner, repo, path)
+const data = Array.isArray(res)
+	? {
+			isFolder: true,
+			subfolders: res.filter((item) => item.type == "dir"),
+			files: res.filter((item) => item.type == "file"),
+		}
+	: "type" in res && res.type == "file"
+		? {
+				isFile: true,
+				file: res,
+				fileContents: Buffer.from(res.content, "base64").toString("utf-8"),
+				fileType: res.name.match(/\.(jpeg|jpg|jfif|pjpeg|pjp|gif|png|apng|webp|avif|bmp|ico|cur|tif|tiff)(\?|$)/)
+					? "image"
+					: "text",
+				fileURL: res.download_url,
+			}
+		: { isFolder: false, isFile: false }
 
 let navItems = [
 	{ name: owner, url: `/${owner}`, folder: true },
 	{ name: repo, url: `/${owner}/${repo}`, folder: true },
 ]
-const items = path?.split("/").map((name, index, array) => {
+const items = path != "" && path.split("/").map((name, index, array) => {
 	const url = `/${owner}/${repo}/` + array.slice(0, index + 1).join("/")
 	return { name: name, url: url, folder: !name.includes(".") }
 })
 items && navItems.push(...items)
+
+const pluralize = (count?: number, singular: string, plural: string, suffix?: string) => {
+	if (!count || count == 0) return null
+	if (count == 1) return `${count} ${singular}${suffix || ""}`
+	return `${count} ${plural}${suffix || ""}`
+}
 ---
 
 <Layout title={path || repo}>
+	<div class="flex flex-col">
+		{
+			navItems.map((item, index) => (
+				<div
+					class:list={{
+						"font-medium": item.folder,
+						"text-neutral-500": index != navItems.length - 1,
+					}}
+				>
+					<a href={item.url}>{item.name}</a>
+				</div>
+			))
+		}
+	</div>
 	{
-		(
-			<div class="flex flex-col">
-				{navItems.map((item, index) => (
-					<a
-						href={item.url}
-						class:list={{
-							"font-medium": item.folder,
-							"text-neutral-500": index != navItems.length - 1,
-						}}
-					>
-						{item.name}
-					</a>
-				))}
+		data.isFolder && (
+			<>
+				{data.subfolders && data.subfolders.length > 0 && (
+					<div class="flex flex-col my-4">
+						{data.subfolders.map((item) => (
+							<div class="font-medium">
+								<a href={`/${owner}/${repo}/${item.path}`}>{item.name}</a>
+							</div>
+						))}
+					</div>
+				)}
+				{data.files && (
+					<div class="flex flex-col my-4">
+						{data.files.map((item) => (
+							<div><a href={`/${owner}/${repo}/${item.path}`}>{item.name}</a></div>
+						))}
+					</div>
+				)}
+				{<div class="text-neutral-500">{pluralize(data.subfolders?.length, "folder", "folders", ", ")}{pluralize(data.files?.length, "file", "files")}</div>}
+			</>
+		)
+	}
+	{
+		data.isFile && data.fileType == "text" && (
+			<div
+				id="edit-actions"
+				class="flex flex-wrap gap-2 mt-4 mb-2 text-sm text-neutral-500 font-medium"
+			>
+				<button
+					id="format"
+					data-path={data.file?.path}
+				>
+					Format
+				</button>
+				<button
+					id="show-diff"
+					data-old-content={data.fileContents}
+				>
+					Preview Commit
+				</button>
+				<button
+					id="rebuild"
+				>
+					Trigger Rebuild
+				</button>
+			</div>
+			<div
+				id="commit-actions"
+				class="hidden flex flex-col gap-2 mt-4 mb-2 items-start text-sm text-neutral-500 font-medium"
+			>
+				<button id="back">
+					Back
+				</button>
+				<button
+					id="commit"
+					data-auth={Astro.cookies.get("access_token")?.value}
+					data-owner={owner}
+					data-repo={repo}
+					data-path={data.file?.path}
+					data-sha={data.file?.sha}
+					data-filename={data.file?.name}
+				>
+					Commit Changes
+				</button>
+			</div>
+			<div id="notification" class="hidden text-sm my-4">
+				<span />
+				<a class="underline" href="#" />
 			</div>
 		)
 	}
 	{
-		Array.isArray(data) ? (
-			<>
-				{folders && folders.length > 0 && (
-					<div class="flex flex-col my-4">
-						{folders.map((item) => (
-							<a href={`/${owner}/${repo}/${item.path}`} class="font-medium">
-								{item.name}
-							</a>
-						))}
-					</div>
+		data.isFile && (
+			<div slot="editor" class="">
+				{data.fileType == "image" && (
+					<img src={data.fileURL} class="max-w-full max-h-full object-contain object-top" />
 				)}
-				{files && (
-					<div class="flex flex-col my-4">
-						{files.map((item) => (
-							<a href={`/${owner}/${repo}/${item.path}`}>{item.name}</a>
-						))}
-					</div>
+				{data.fileType == "text" && (
+					<pre
+					id="diff"
+					class="hidden text-sm lg:text-base"
+					></pre>
+					<textarea class="dark:bg-black bg-neutral-50 font-mono pr-2 text-sm lg:text-base w-full h-[calc(100%-6px)] focus:outline-none resize-none">{data.fileContents}</textarea>
 				)}
-			</>
-		) : (
-			<>
-				<div
-					id="edit-actions"
-					class="flex gap-2 mt-4 mb-2 text-sm text-neutral-500 font-medium"
-				>
-					<button
-						id="format"
-						data-path={data?.path}
-						class="border-neutral-500 border rounded px-2 py-1"
-					>
-						Format
-					</button>
-					<button
-						id="show-diff"
-						data-old-content={fileContents}
-						class="border-neutral-500 border rounded px-2 py-1"
-					>
-						Preview Commit
-					</button>
-					<button
-						id="rebuild"
-						class="border-neutral-500 border rounded px-2 py-1"
-					>
-						Trigger Rebuild
-					</button>
-				</div>
-				<div
-					id="commit-actions"
-					class="hidden flex gap-2 mt-4 mb-2 text-sm text-neutral-500 font-medium"
-				>
-					<button id="back" class="border-neutral-500 border rounded px-2 py-1">
-						Back
-					</button>
-					<button
-						id="commit"
-						data-auth={Astro.cookies.get("access_token")?.value}
-						data-owner={owner}
-						data-repo={repo}
-						data-path={data?.path}
-						data-sha={data?.sha}
-						data-filename={data?.name}
-						class="border-neutral-500 border rounded px-2 py-1"
-					>
-						Commit Changes
-					</button>
-				</div>
-				<div id="notification" class="hidden text-sm my-4">
-					<span />
-					<a class="underline" href="#" />
-				</div>
-			</>
+			</div>
 		)
 	}
-	{/* prettier-ignore */}
-	<div slot="editor" class="h-full w-full">
-		<pre
-			id="diff"
-			class="hidden min-h-[calc(100vh-58px)] max-w-[700px] w-full h-full overflow-scroll text-sm lg:text-base">
-		</pre>
-		<textarea
-			class="dark:bg-black bg-neutral-50 font-mono pr-2 text-sm lg:text-base min-h-[calc(100vh-58px)] w-full h-full focus:outline-none resize-none"
-			>{fileContents}</textarea
-		>
-	</div>
 </Layout>
 
 <script>

@@ -8,6 +8,6 @@ export default defineConfig({
 	site: "https://cms.aureliendossantos.com",
 	output: "server",
 	prefetch: false,
-	integrations: [tailwind(), db()],
+	integrations: [tailwind({ nesting: true }), db()],
 	adapter: vercel(),
 })

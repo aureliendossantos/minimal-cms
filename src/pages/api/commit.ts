@@ -11,9 +11,7 @@ export const POST: APIRoute = async ({ request }) => {
 		})
 
 		const octoRequestUser = await octokit.request("GET /user", {
-			headers: {
-				"X-GitHub-Api-Version": "2022-11-28",
-			},
+			headers: { "X-GitHub-Api-Version": "2022-11-28" },
 		})
 		const user = octoRequestUser.data
 
@@ -24,15 +22,9 @@ export const POST: APIRoute = async ({ request }) => {
 				repo: body.repo,
 				path: body.path,
 				message: `[cms] ${body.filename}`,
-				committer: {
-					name: user.name || user.login,
-					email: `${user.id}+${user.login}@users.noreply.github.com`,
-				},
 				content: base64,
 				sha: body.sha,
-				headers: {
-					"X-GitHub-Api-Version": "2022-11-28",
-				},
+				headers: { "X-GitHub-Api-Version": "2022-11-28" },
 			}
 		)
 

@@ -18,25 +18,29 @@ const { title } = Astro.props
 		<ViewTransitions />
 	</head>
 	<body
-		class="max-w-[1200px] lg:flex-row lg:gap-16 h-screen flex-col flex m-auto px-4 p-8 bg-neutral-50 dark:bg-black dark:text-neutral-300"
+		class="max-w-[1200px] lg:flex-row lg:gap-16 h-screen grid grid-rows-[auto_1fr] lg:grid-rows-none lg:grid-cols-4 m-auto px-4 py-4 lg:py-8 bg-neutral-50 dark:bg-black dark:text-neutral-300"
 	>
 		<div>
 			<slot />
 		</div>
-		<div class="grow">
+		<div class="lg:col-span-3 h-full grid overflow-auto">
 			<slot name="editor" />
 		</div>
-		<style>
+		<style is:global>
 			a {
-				@apply dark:hover:text-neutral-50 hover:text-neutral-900;
+				@apply hover:bg-neutral-200 rounded transition -mx-1 px-1 -my-[2px] py-[2px] dark:hover:bg-neutral-800 box-decoration-clone;
 			}
-			textarea::-webkit-scrollbar {
+			button {
+				@apply border-neutral-500 border rounded transition px-2 py-1 hover:bg-neutral-200 dark:hover:bg-neutral-800;
+			}
+			::-webkit-scrollbar {
 				width: 8px;
+				height: 8px;
 			}
-			textarea::-webkit-scrollbar-thumb {
+			::-webkit-scrollbar-thumb {
 				@apply rounded-full bg-neutral-200 hover:bg-neutral-300 active:bg-neutral-400 dark:bg-neutral-800 px-2 dark:hover:bg-neutral-700 dark:active:bg-neutral-600 hover:cursor-grab active:cursor-grabbing;
 			}
-			textarea::-webkit-scrollbar-track {
+			::-webkit-scrollbar-track {
 				@apply bg-transparent;
 			}
 		</style>

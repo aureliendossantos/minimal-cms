@@ -16,13 +16,17 @@ Minimal CMS fills that gap, while being customizable—but not cumbersome.
 
 - [ ] Protection for user access tokens (currently, the 8-hour token is stored in a cookie)
 - [x] Browse your repos
+- [x] See number of subfolders & files
+- [ ] Pagination for file explorer ("See more")
 - [ ] Type to find a file
 - [ ] Quick access to favorite files
 - [x] Edit existing files
 - [ ] Create new files
 - [x] Preview the diff
 - [x] Commit instantly
+- [ ] Confirmation modal
 - [ ] Upload images
+- [x] Preview images
 - [ ] Trigger manual deployments
 - [ ] Shortcuts to insert Markdown syntax or custom text
 - [ ] Extendable shortcuts (using external APIs)
